@@ -16,7 +16,7 @@ client = Client(api_key, secret_key)
 
 # Global Variable Declarations
 price = 0
-state = 0
+state = 2
 on_long = False
 on_short = False
 tp_price = 0
@@ -24,7 +24,7 @@ sl_price = 0
 tp_count = 0
 sl_count = 0
 csv_path_result = "./data/ragebot_result.csv"
-csv_path_position = "./data/ragebot_dataset.csv"
+csv_path_dataset = "./data/ragebot_dataset.csv"
 date = ""
 data_position = None
 data_check = None
@@ -38,7 +38,7 @@ def close_position(isTP):
     global tp_count
     global sl_count 
     global csv_path_result
-    global csv_path_position
+    global csv_path_dataset
     global date
     global state
     global pseudo
@@ -50,7 +50,7 @@ def close_position(isTP):
     elif (on_long and (not isTP)) or (on_short and isTP):
         position = "SHORT"
 
-    save_position(csv_path_position, state, data_position)
+    save_position(csv_path_dataset, position, data_position)
     
     if on_long and isTP:
         state = state + 1 if (state != 3) else 3
@@ -65,7 +65,7 @@ def close_position(isTP):
     on_short = False
 
     if not pseudo:
-        save_result(csv_path_result, position, "LONG" if on_long else "SHORT")
+        save_result(csv_path_result, data_position.date, position, "LONG" if on_long else "SHORT")
         if isTP:
             tp_count = tp_count + 1
             print_with_color("green", "Position closed with TP")
@@ -79,7 +79,7 @@ def close_position(isTP):
     else:
         print_with_color("cyan", "dataset is updated")
 
-print_with_color("cyan", "RageBot is running...")
+print_with_color("cyan", "RageBot is running...\n")
 
 while True:
     try:
@@ -87,9 +87,8 @@ while True:
         data_check = fetch_all_indicators(client)
 
         if not (on_long or on_short):
-            print()
             data_position = copy.deepcopy(data_check)
-            _, prediction = predict(csv_path_result, data_position)
+            _, prediction = predict(csv_path_dataset, data_position)
             triple_log.add(prediction)
             pseudo = True
 
@@ -98,37 +97,35 @@ while True:
                     pseudo = False
                 tp_price, sl_price = enter_long(client, pseudo)
                 on_long = True
-                print_with_color("yellow", "Entered " + ("(PSEUDO)" if (pseudo) else "") +
-                    " LONG Current: " + str(round(price, 2)) + " TP_PRICE: " + 
-                    str(round(tp_price, 2)) + " SL_PRICE: " + str(round(sl_price, 2)))
+                print()
+                if not pseudo:
+                    print_with_color("yellow", "Entered LONG Current: " + str(round(data_check.price, 2)) + 
+                    " TP_PRICE: " + str(round(tp_price, 2)) + " SL_PRICE: " + str(round(sl_price, 2)))
             
             elif state == 2:
                 tp_price, sl_price = enter_long(client, pseudo)
                 on_long = True
-                print_with_color("yellow", "Entered " + ("(PSEUDO)" if (pseudo) else "") + 
-                    " LONG Current: " + str(round(price, 2)) + " TP_PRICE: " + 
-                    str(round(tp_price, 2)) + " SL_PRICE: " + str(round(sl_price, 2)))
+
             elif state == 1:
                 tp_price, sl_price = enter_short(client, pseudo)
                 on_short = True
-                print_with_color("yellow", "Entered " + ("(PSEUDO)" if (pseudo) else "") + 
-                    " SHORT Current: " + str(round(price, 2)) + " TP_PRICE: " + 
-                    str(round(tp_price, 2)) + " SL_PRICE: " + str(round(sl_price, 2)))
+                
             elif state == 0:
                 if triple_log.confirm("SHORT"):
                     pseudo = False
                 tp_price, sl_price = enter_short(client, pseudo)
                 on_short = True
-                print_with_color("yellow", "Entered " + ("(PSEUDO)" if (pseudo) else "") +  
-                    " SHORT Current: " + str(round(price, 2)) + " TP_PRICE: " + 
-                    str(round(tp_price, 2)) + " SL_PRICE: " + str(round(sl_price, 2)))
+                print()
+                if not pseudo:
+                    print_with_color("yellow", "Entered SHORT Current: " + str(round(data_check.price, 2)) + 
+                    " TP_PRICE: " + str(round(tp_price, 2)) + " SL_PRICE: " + str(round(sl_price, 2)))
 
         else:
-            if (on_long and price > tp_price) or \
-                (on_short and price < tp_price):
+            if (on_long and data_check.price > tp_price) or \
+                (on_short and data_check.price < tp_price):
                 close_position(True)
-            elif (on_long and price < sl_price) or \
-                (on_short and price > sl_price):
+            elif (on_long and data_check.price < sl_price) or \
+                (on_short and data_check.price > sl_price):
                 close_position(False)
 
     except Exception as e:
