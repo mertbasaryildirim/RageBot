@@ -1,3 +1,4 @@
+import silence_tensorflow.auto
 from binance.client import Client
 from binanceAPI.position_utilities import enter_long, enter_short
 from data.triple_list import TripleList
@@ -5,8 +6,8 @@ from config import api_key, secret_key
 from indicators.price import fetch_price
 from indicators.rsi import fetch_RSI
 from indicators.fetch_all_indicators import fetch_all_indicators
-from tensorflow_utilities.tensorflow_decision import predict
-from data.io_utilities import print_with_color, calculateWR, get_current_date_string
+from tensorflow_utilities.tensor_model import TensorModel
+from data.io_utilities import print_with_color, calculateWR
 from time import sleep
 from data.data_functions import save_result, save_position
 import copy
@@ -79,6 +80,12 @@ def close_position(isTP):
     else:
         print_with_color("cyan", "dataset is updated")
 
+    position_history = triple_log.get_values()
+    print_with_color("yellow", "STATE = " + str(state) + ", List: " + 
+                     ("X" if position_history[0] is None else position_history[0]) + ", " +
+                     ("X" if position_history[1] is None else position_history[1]) + ", " + 
+                     ("X" if position_history[2] is None else position_history[2]))
+
 print_with_color("cyan", "RageBot is running...\n")
 
 while True:
@@ -88,7 +95,7 @@ while True:
 
         if not (on_long or on_short):
             data_position = copy.deepcopy(data_check)
-            _, prediction = predict(csv_path_dataset, data_position)
+            _, prediction = accuracy, prediction = TensorModel(csv_path_dataset).process_model(data_position)
             triple_log.add(prediction)
             pseudo = True
 
@@ -97,8 +104,8 @@ while True:
                     pseudo = False
                 tp_price, sl_price = enter_long(client, pseudo)
                 on_long = True
-                print()
                 if not pseudo:
+                    print()
                     print_with_color("yellow", "Entered LONG Current: " + str(round(data_check.price, 2)) + 
                     " TP_PRICE: " + str(round(tp_price, 2)) + " SL_PRICE: " + str(round(sl_price, 2)))
             
@@ -115,8 +122,8 @@ while True:
                     pseudo = False
                 tp_price, sl_price = enter_short(client, pseudo)
                 on_short = True
-                print()
                 if not pseudo:
+                    print()
                     print_with_color("yellow", "Entered SHORT Current: " + str(round(data_check.price, 2)) + 
                     " TP_PRICE: " + str(round(tp_price, 2)) + " SL_PRICE: " + str(round(sl_price, 2)))
 
